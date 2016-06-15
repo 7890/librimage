@@ -1,81 +1,143 @@
 #!/bin/sh
 
-#quick & dirty add image to plain fodt (flat XML open document text) file
-#example: (echo "hi"; echo "`date`";) | ./librimage coffee.png > out.fodt
-#example: cat somefile.xml | xmlstarlet escape | ./librimage myimage.png > out.fodt
-#this will create document out.fodt, containing myimage.png, following (XML escaped) text from somefile.xml
-#out.fodt can be opened and edited with libreoffice writer
-#convert:
-#libreoffice --headless --convert-to pdf out.fodt
-#libreoffice --headless --convert-to docx out.fodt
-#libreoffice --headless --convert-to rtf out.fodt
+librimage_version=0.2
+
+#quick & dirty script to create FODT file from image
 #//tb/1606
 
-##needs toolcheck
+#A4
+arg_orientation=portrait
+#arg_orientation=landscape
 
-librimage_version=0.1
+page_margin_uni_mm=4.99
 
+#set the scale relation of image to page width (keep aspect ratio)
+#value 1: image fits page width
+#value 0.5: image is half the page width
+image_page_width_ratio=0.8
+
+#========================================================================
 if [ $# -lt 1 ]
 then
-	echo "librimage: need image argument">&2
+	echo "librimage: need argument: image">&2
+
+	echo "">&2
+	echo "***help***">&2
+	echo "add image to .fodt file (flat XML open document text)">&2
+	echo "example: librimage myimage.png > out.fodt">&2
+	echo "example: (echo "hi"; echo "`date`";) | librimage coffee.png - > out.fodt">&2
+	echo "example: cat somefile.xml | librimage myimage.png - > out.fodt">&2
+	echo "this will create document out.fodt, containing myimage.png, followed by plain text from somefile.xml">&2
+	echo "input text will automatically be escaped for use in XML."
+	echo "out.fodt can be opened and edited with libreoffice writer">&2
+	echo "convert .fodt files:">&2
+	echo "libreoffice --headless --convert-to pdf out.fodt">&2
+	echo "libreoffice --headless --convert-to docx out.fodt">&2
+	echo "libreoffice --headless --convert-to rtf out.fodt">&2
+	echo ""
 	exit 1
 fi
 
-#A4 portrait
-page_width_mm=210.01
-page_height_mm=297
-page_orientation=portrait
+if [ ! -f "$1" ]
+then
+	echo "librimage: file not found">&2
+	exit 1
+fi
 
-#A4 landscape
-#page_width_mm=297
-#page_height_mm=210.01
-#page_orientation=landscape
+append_from_stdin=0
 
-page_margin_left_mm=4.99
-page_margin_right_mm=4.99
-page_margin_top_mm=4.99
-page_margin_bottom_mm=4.99
+if [ $# -gt 1 ]
+then
+	if [ x"$2" = 'x-' ]
+	then
+		#append text lines from stdin
+		append_from_stdin=1
+	fi
+fi
 
 #image_uri=coffee.png
 image_uri="$1"
 
-image_base64_string=`base64 -w 0 "$image_uri"`
+#========================================================================
+checkAvail()
+{
+	which "$1" >/dev/null 2>&1
+	ret=$?
+	if [ $ret -ne 0 ]
+	then
+		echo "tool \"$1\" not found. please install"
+		exit 1
+	fi
+}
 
-image_width=`identify "$image_uri" | cut -d" " -f3 | cut -d"x" -f1`
-image_height=`identify "$image_uri" | cut -d" " -f3 | cut -d"x" -f2`
-image_wh_ratio=`echo "scale=3; $image_width / $image_height"|bc`
+#========================================================================
+configure()
+{
+	#test if landscape
+	if [ x"$arg_orientation" = "xlandscape" ]
+	then
+		#A4 landscape
+		page_width_mm=297
+		page_height_mm=210.01
+		page_orientation=landscape
+	else
+		#default 
+		#A4 portrait
+		page_width_mm=210.01
+		page_height_mm=297
+		page_orientation=portrait
+	fi
 
-image_page_width_ratio=1
+#	page_margin_left_mm=4.99
+#	page_margin_right_mm=4.99
+#	page_margin_top_mm=4.99
+#	page_margin_bottom_mm=4.99
 
-image_target_width_mm=`echo "$image_page_width_ratio * ($page_width_mm - $page_margin_left_mm - $page_margin_right_mm)"|bc`
-image_scale_ratio=`echo "scale=3; $image_target_width_mm / $image_width"|bc`
-image_target_height_mm=`echo "$image_height * $image_scale_ratio"|bc`
+	page_margin_left_mm=$page_margin_uni_mm
+	page_margin_right_mm=$page_margin_uni_mm
+	page_margin_top_mm=$page_margin_uni_mm
+	page_margin_bottom_mm=$page_margin_uni_mm
 
-date_time_string=`date +%Y-%m-%dT%H:%M:%S.%N`
+	#encode image as base64 one liner
+	image_base64_string=`base64 -w 0 "$image_uri"`
 
-#==============================================================================
-cat - << __EOF__
+	#read image dimensions
+	image_width=`identify "$image_uri" | cut -d" " -f3 | cut -d"x" -f1`
+	image_height=`identify "$image_uri" | cut -d" " -f3 | cut -d"x" -f2`
+	#calculate width to height ratio
+	image_wh_ratio=`echo "scale=3; $image_width / $image_height"|bc`
+	#calculate width and height in mm of image for display / embedd
+	image_target_width_mm=`echo "$image_page_width_ratio * ($page_width_mm - $page_margin_left_mm - $page_margin_right_mm)"|bc`
+	image_scale_ratio=`echo "scale=3; $image_target_width_mm / $image_width"|bc`
+	image_target_height_mm=`echo "$image_height * $image_scale_ratio"|bc`
+
+	#timestamp "creation-date"
+	date_time_string=`date +%Y-%m-%dT%H:%M:%S.%N`
+}
+#end configure()
+
+#========================================================================
+assembleFODF()
+{
+	cat - << __EOF__
 <?xml version="1.0" encoding="UTF-8"?>
 <office:document xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:meta="urn:oasis:names:tc:opendocument:xmlns:meta:1.0" xmlns:number="urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0" xmlns:svg="urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0" xmlns:chart="urn:oasis:names:tc:opendocument:xmlns:chart:1.0" xmlns:dr3d="urn:oasis:names:tc:opendocument:xmlns:dr3d:1.0" xmlns:math="http://www.w3.org/1998/Math/MathML" xmlns:form="urn:oasis:names:tc:opendocument:xmlns:form:1.0" xmlns:script="urn:oasis:names:tc:opendocument:xmlns:script:1.0" xmlns:config="urn:oasis:names:tc:opendocument:xmlns:config:1.0" xmlns:ooo="http://openoffice.org/2004/office" xmlns:ooow="http://openoffice.org/2004/writer" xmlns:oooc="http://openoffice.org/2004/calc" xmlns:dom="http://www.w3.org/2001/xml-events" xmlns:xforms="http://www.w3.org/2002/xforms" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:rpt="http://openoffice.org/2005/report" xmlns:of="urn:oasis:names:tc:opendocument:xmlns:of:1.2" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:grddl="http://www.w3.org/2003/g/data-view#" xmlns:officeooo="http://openoffice.org/2009/office" xmlns:tableooo="http://openoffice.org/2009/table" xmlns:drawooo="http://openoffice.org/2010/draw" xmlns:calcext="urn:org:documentfoundation:names:experimental:calc:xmlns:calcext:1.0" xmlns:loext="urn:org:documentfoundation:names:experimental:office:xmlns:loext:1.0" xmlns:field="urn:openoffice:names:experimental:ooo-ms-interop:xmlns:field:1.0" xmlns:formx="urn:openoffice:names:experimental:ooxml-odf-interop:xmlns:form:1.0" xmlns:css3t="http://www.w3.org/TR/css3-text/" office:version="1.2" office:mimetype="application/vnd.oasis.opendocument.text">
 __EOF__
+	#<!-- 2016-06-15T02:02:40.120286509 -->
+	#<!-- YYYY-mm-ddTHH:MM:SS.N-->
+	#<!-- date +%Y-%m-%dT%H:%M:%S.%N-->
 
-#./document_meta.snip.sh
-#<!-- 2016-06-15T02:02:40.120286509 -->
-#<!-- YYYY-mm-ddTHH:MM:SS.N-->
-#<!-- date +%Y-%m-%dT%H:%M:%S.%N-->
-cat - << __EOF__
-<office:meta>
+	cat - << __EOF__
+  <office:meta>
 	<meta:creation-date>${date_time_string}</meta:creation-date>
 	<dc:date>${date_time_string}</dc:date>
 	<meta:editing-duration>PT0M1S</meta:editing-duration>
 	<meta:editing-cycles>1</meta:editing-cycles>
 	<meta:generator>librimage version ${librimage_version}</meta:generator>
-<!--
-<meta:document-statistic ...
--->
+	<!--<meta:document-statistic ...-->
   </office:meta>
 __EOF__
-cat - << __EOF__
+	cat - << __EOF__
   <office:settings>
     <config:config-item-set config:name="ooo:view-settings">
       <config:config-item config:name="ViewAreaTop" config:type="long">0</config:config-item>
@@ -328,20 +390,45 @@ cat - << __EOF__
         <text:sequence-decl text:display-outline-level="0" text:name="Drawing"/>
       </text:sequence-decls>
 __EOF__
-cat - << __EOF__
-<!--      <text:p text:style-name="P1"><draw:frame draw:style-name="fr1" draw:name="Image1" text:anchor-type="paragraph" svg:width="200.03mm" svg:height="112.5mm" draw:z-index="0"><draw:image><office:binary-data> -->
+	cat - << __EOF__
       <text:p text:style-name="P1"><draw:frame draw:style-name="fr1" draw:name="Image1" text:anchor-type="paragraph" svg:width="${image_target_width_mm}mm" svg:height="${image_target_height_mm}mm" draw:z-index="0"><draw:image><office:binary-data>
 ${image_base64_string}
       </office:binary-data></draw:image></draw:frame></text:p>
 __EOF__
-while read line; do cat - << __EOF__
-      <text:p text:style-name="P1">${line}</text:p>
+
+	if [ x"$append_from_stdin" = "x1" ]
+	then
+
+		echo "********">&2
+		echo "if this is an interactive session: optional entry of text lines now.">&2
+		echo "enter creates an empty paragraph."
+		echo "end input with ctrl+d, abort ctrl+c">&2
+		echo "********">&2
+		echo "custom text (or wait for EOF of non-interactive input):">&2
+
+		while read line; do 
+			line_escaped=`xmlstarlet escape "$line"`
+			cat - << __EOF__
+      <text:p text:style-name="P1">${line_escaped}</text:p>
 __EOF__
-done
-cat - << __EOF__
+		done
+	fi
+
+	cat - << __EOF__
 <!--      <text:p text:style-name="P2">bold</text:p>-->
     </office:text>
   </office:body>
 </office:document>
 __EOF__
+}
+#end assembleFODF()
+
+#========================================================================
+for tool in cat base64 identify cut bc date xmlstarlet; \
+	do checkAvail "$tool"; done
+
+configure
+assembleFODF
+echo "librimage done.">&2
+
 #EOF
