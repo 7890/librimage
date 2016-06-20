@@ -10,11 +10,13 @@ arg_orientation=portrait
 #arg_orientation=landscape
 
 page_margin_uni_mm=4.99
+#page_margin_uni_mm=0
 
 #set the scale relation of image to page width (keep aspect ratio)
 #value 1: image fits page width
 #value 0.5: image is half the page width
-image_page_width_ratio=0.8
+image_page_width_ratio=1.0
+#image_page_width_ratio=0.8
 
 #========================================================================
 if [ $# -lt 1 ]
@@ -65,7 +67,7 @@ checkAvail()
 	ret=$?
 	if [ $ret -ne 0 ]
 	then
-		echo "tool \"$1\" not found. please install"
+		echo "tool \"$1\" not found. please install">&2
 		exit 1
 	fi
 }
@@ -253,6 +255,7 @@ __EOF__
     </office:script>
   </office:scripts>
   <office:font-face-decls>
+    <style:font-face style:name="Courier" svg:font-family="Courier" style:font-family-generic="modern" style:font-pitch="fixed"/>
     <style:font-face style:name="DejaVu Sans1" svg:font-family="'DejaVu Sans'" style:font-family-generic="swiss"/>
     <style:font-face style:name="Liberation Serif" svg:font-family="'Liberation Serif'" style:font-family-generic="roman" style:font-pitch="variable"/>
     <style:font-face style:name="Liberation Sans" svg:font-family="'Liberation Sans'" style:font-family-generic="swiss" style:font-pitch="variable"/>
@@ -357,7 +360,10 @@ __EOF__
   </office:styles>
   <office:automatic-styles>
     <style:style style:name="P1" style:family="paragraph" style:parent-style-name="Standard">
+<!--
       <style:text-properties officeooo:rsid="001d1a85" officeooo:paragraph-rsid="001d1a85"/>
+-->
+      <style:text-properties style:font-name="Courier" officeooo:rsid="001d1a85" officeooo:paragraph-rsid="001d1a85"/>
     </style:style>
     <style:style style:name="P2" style:family="paragraph" style:parent-style-name="Standard">
       <style:text-properties fo:font-weight="bold" officeooo:rsid="001d1a85" officeooo:paragraph-rsid="001d1a85" style:font-weight-asian="bold" style:font-weight-complex="bold"/>
