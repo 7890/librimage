@@ -1,0 +1,146 @@
+#!/bin/sh
+
+svgimage_version=0.2
+
+#quick & dirty script to create SVG file with embedded image
+#//tb/1606
+
+#========================================================================
+if [ $# -lt 1 ]
+then
+	echo "svgimage: need argument: image">&2
+
+	echo "">&2
+	echo "***help***">&2
+	echo "embed image to .svg file (Scalable Vector Graphics XML)">&2
+	echo "example: svgimage myimage.png > out.svg">&2
+	echo "out.svg can be opened and edited with an SVG editor like Inkscape">&2
+#	echo "convert .svg files:">&2
+	echo ""
+	exit 1
+fi
+
+if [ ! -f "$1" ]
+then
+	echo "svgimage: file not found">&2
+	exit 1
+fi
+
+#image_uri=coffee.png
+image_uri="$1"
+
+#========================================================================
+checkAvail()
+{
+	which "$1" >/dev/null 2>&1
+	ret=$?
+	if [ $ret -ne 0 ]
+	then
+		echo "tool \"$1\" not found. please install"
+		exit 1
+	fi
+}
+
+#========================================================================
+configure()
+{
+	page_margin_uni_mm=0
+	image_page_width_ratio=1.0
+
+	page_margin_left_mm=$page_margin_uni_mm
+	page_margin_right_mm=$page_margin_uni_mm
+	page_margin_top_mm=$page_margin_uni_mm
+	page_margin_bottom_mm=$page_margin_uni_mm
+
+	#encode image as base64 one liner
+	image_base64_string=`base64 -w 0 "$image_uri"`
+
+	#read image dimensions
+	image_width=`identify "$image_uri" | cut -d" " -f3 | cut -d"x" -f1`
+	image_height=`identify "$image_uri" | cut -d" " -f3 | cut -d"x" -f2`
+
+	page_width_mm=$image_width;
+	page_height_mm=$image_height;
+
+	#calculate width to height ratio
+	image_wh_ratio=`echo "scale=3; $image_width / $image_height"|bc`
+	#calculate width and height in mm of image for display / embedd
+	image_target_width_mm=`echo "$image_page_width_ratio * ($page_width_mm - $page_margin_left_mm - $page_margin_right_mm)"|bc`
+	image_scale_ratio=`echo "scale=3; $image_target_width_mm / $image_width"|bc`
+	image_target_height_mm=`echo "$image_height * $image_scale_ratio"|bc`
+
+	#timestamp "creation-date"
+	date_time_string=`date +%Y-%m-%dT%H:%M:%S.%N`
+}
+#end configure()
+
+#========================================================================
+assembleSVG()
+{
+	cat - << __EOF__
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with svgimage version ${svgimage_version} (https://github.com/7890/librimage) -->
+<!--
+__META_PROPS__
+creation_date=${date_time_string}
+-->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   width="${page_width_mm}"
+   height="${page_height_mm}"
+   id="svg2"
+   version="1.1">
+
+ <metadata id="metadata7">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+
+  <g
+     id="layer1"
+     transform="translate(0,0)">
+
+    <rect
+       style="fill:none;stroke:#000000;stroke-width:1;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0"
+       id="rect3069"
+       width="${image_target_height_mm}"
+       height="${image_target_width_mm}"
+       x="0"
+       y="0"
+       ry="0" />
+
+    <image
+       y="0"
+       x="0"
+       id="image3066"
+       xlink:href="data:image/png;base64,${image_base64_string}"
+       height="${image_target_width_mm}"
+       width="${image_target_height_mm}" />
+  </g>
+</svg>
+__EOF__
+}
+#end assembleSVG()
+
+#========================================================================
+for tool in cat base64 identify cut bc date xmlstarlet; \
+	do checkAvail "$tool"; done
+
+configure
+assembleSVG
+echo "svgimage done.">&2
+exit
+#EOF
