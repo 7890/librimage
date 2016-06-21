@@ -44,14 +44,6 @@ checkAvail()
 #========================================================================
 configure()
 {
-	page_margin_uni_mm=0
-	image_page_width_ratio=1.0
-
-	page_margin_left_mm=$page_margin_uni_mm
-	page_margin_right_mm=$page_margin_uni_mm
-	page_margin_top_mm=$page_margin_uni_mm
-	page_margin_bottom_mm=$page_margin_uni_mm
-
 	#encode image as base64 one liner
 	image_base64_string=`base64 -w 0 "$image_uri"`
 
@@ -59,15 +51,11 @@ configure()
 	image_width=`identify "$image_uri" | cut -d" " -f3 | cut -d"x" -f1`
 	image_height=`identify "$image_uri" | cut -d" " -f3 | cut -d"x" -f2`
 
-	page_width_mm=$image_width;
-	page_height_mm=$image_height;
+	page_width_mm=$image_width
+	page_height_mm=$image_height
 
-	#calculate width to height ratio
-	image_wh_ratio=`echo "scale=3; $image_width / $image_height"|bc`
-	#calculate width and height in mm of image for display / embedd
-	image_target_width_mm=`echo "$image_page_width_ratio * ($page_width_mm - $page_margin_left_mm - $page_margin_right_mm)"|bc`
-	image_scale_ratio=`echo "scale=3; $image_target_width_mm / $image_width"|bc`
-	image_target_height_mm=`echo "$image_height * $image_scale_ratio"|bc`
+	image_target_width_mm=$image_width
+	image_target_height_mm=$image_height
 
 	#timestamp "creation-date"
 	date_time_string=`date +%Y-%m-%dT%H:%M:%S.%N`
@@ -116,8 +104,8 @@ creation_date=${date_time_string}
     <rect
        style="fill:none;stroke:#000000;stroke-width:1;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0"
        id="rect3069"
-       width="${image_target_height_mm}"
-       height="${image_target_width_mm}"
+       width="${image_target_width_mm}"
+       height="${image_target_height_mm}"
        x="0"
        y="0"
        ry="0" />
@@ -127,8 +115,8 @@ creation_date=${date_time_string}
        x="0"
        id="image3066"
        xlink:href="data:image/png;base64,${image_base64_string}"
-       height="${image_target_width_mm}"
-       width="${image_target_height_mm}" />
+       width="${image_target_width_mm}"
+       heigth="${image_target_height_mm}" />
   </g>
 </svg>
 __EOF__
