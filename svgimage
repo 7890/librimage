@@ -110,27 +110,25 @@ creation_date=${date_time_string}
     </rdf:RDF>
   </metadata>
 
-  <g
-     id="layer1"
-     transform="translate(0,0)">
+<!--
+  <rect
+     style="fill:none;stroke:#000000;stroke-width:1;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0"
+     id="rect_around_image"
+     width="${image_target_width_mm}"
+     height="${image_target_height_mm}"
+     x="0"
+     y="0"
+     ry="0" />
+-->
 
-    <rect
-       style="fill:none;stroke:#000000;stroke-width:1;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0"
-       id="rect_around_image"
-       width="${image_target_width_mm}"
-       height="${image_target_height_mm}"
-       x="0"
-       y="0"
-       ry="0" />
+  <image
+     y="0"
+     x="0"
+     id="image_embedded_by_svgimage"
+     xlink:href="data:image/png;base64,${image_base64_string}"
+     width="${image_target_width_mm}"
+     heigth="${image_target_height_mm}" />
 
-    <image
-       y="0"
-       x="0"
-       id="image_embedded_by_svgimage"
-       xlink:href="data:image/png;base64,${image_base64_string}"
-       width="${image_target_width_mm}"
-       heigth="${image_target_height_mm}" />
-  </g>
 </svg>
 __EOF__
 }
